@@ -94,14 +94,10 @@
     - name: Change permission
       shell: sudo chmod -R 775 /opt/{{ app_root_dir }}/bootstrap/cache/
 
-    - name: Install Dependencies with Composer
-      become: false
-      become_user: hng
-      composer:
-        command: install
-        no_dev: no
-        working_dir: "{{ remote_www_root }}/{{ app_root_dir }}"
-      tags: [ 'composer:install' ]
+    - name: Install Laravel dependencies as hng user
+      shell: |
+        su - hng -c 'cd /opt/stage_5b && composer update && composer install'
+      register: composer_install_output
 
     - name: Create the web.php file in the routes directory
       ansible.builtin.copy:
