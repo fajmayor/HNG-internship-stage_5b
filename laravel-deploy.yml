@@ -65,8 +65,6 @@
         command: install
         no_dev: no
         working_dir: "{{ remote_www_root }}/{{ app_root_dir }}"
-      args:
-        chdir: /opt/stage_5b/
       tags: [ 'composer:install' ]
 
     - name: Change file ownership, group and permissions
