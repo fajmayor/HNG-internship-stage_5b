@@ -14,5 +14,5 @@ Pass: Faith2020@
 
 ### 2. Then run the laravel-deploy to install laravel and the necessary periquisites
 
-`ansible-playbook laravel-deploy.yml -i hosts -u ubuntu`
+`ansible-playbook laravel-deploy.yml -i hosts -u hng`
 
