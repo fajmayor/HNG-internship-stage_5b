@@ -59,15 +59,6 @@
         group: "{{ remote_user }}"
         mode: '775'
 
-    - name: Install Dependencies with Composer
-      become: false
-      become_user: hng
-      composer:
-        command: install
-        no_dev: no
-        working_dir: "{{ remote_www_root }}/{{ app_root_dir }}"
-      tags: [ 'composer:install' ]
-
     - name: Change file ownership, group and permissions
       ansible.builtin.file:
         path: /opt/{{ app_root_dir }}
@@ -102,6 +93,15 @@
 
     - name: Change permission
       shell: sudo chmod -R 775 /opt/{{ app_root_dir }}/bootstrap/cache/
+
+    - name: Install Dependencies with Composer
+      become: false
+      become_user: hng
+      composer:
+        command: install
+        no_dev: no
+        working_dir: "{{ remote_www_root }}/{{ app_root_dir }}"
+      tags: [ 'composer:install' ]
 
     - name: Create the web.php file in the routes directory
       ansible.builtin.copy:
