@@ -1,0 +1,32 @@
+---
+- name: Update installed packages
+  ansible.builtin.apt:
+    update_cache: yes
+    autoremove: yes
+    cache_valid_time: 3600
+
+- name: Install lsb-release apt-transport-https ca-certificates
+  apt: name={{ item }} update_cache=yes state=latest
+  loop: [ 'lsb-release', 'apt-transport-https', 'ca-certificates' ]
+
+- name: delete a file if it exists
+  file:
+    path: /etc/apt/trusted.gpg.d/php.gpg
+    state: absent
+
+- name: Add Ondrej PHP PPA
+  apt_repository:
+   repo: 'ppa:ondrej/php'
+   state: present
+   update_cache: yes
+
+- name: Update installed packages
+  ansible.builtin.apt:
+    update_cache: yes
+    autoclean: yes
+    cache_valid_time: 3600
+    force_apt_get: true
+
+- name: Install PHP 8.3
+  apt: name={{ item }} update_cache=yes state=latest
+  loop: [ 'php{{php_version}}', 'php{{php_version}}-common', 'php{{php_version}}-xml', 'php{{php_version}}-xmlrpc', 'php{{php_version}}-curl', 'php{{php_version}}-gd', 'php{{php_version}}-imagick', 'php{{php_version}}-cli', 'php{{php_version}}-dev', 'php{{php_version}}-imap','php{{php_version}}-mbstring', 'php{{php_version}}-opcache', 'php{{php_version}}-soap', 'php{{php_version}}-zip', 'php{{php_version}}-pgsql', 'php{{php_version}}-fpm', 'php{{php_version}}-intl', 'unzip' ]

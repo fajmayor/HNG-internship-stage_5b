@@ -1,0 +1,42 @@
+---
+# Step 11: Install Nginx version 1.26
+- name: Add the Nginx signing key
+  apt_key:
+    url: https://nginx.org/keys/nginx_signing.key
+    state: present
+
+- name: Add the Nginx APT repository
+  apt_repository:
+    repo: deb [arch=amd64] http://nginx.org/packages/ubuntu jammy nginx
+    state: present
+  register: nginx_repo_output
+
+- name: Update the APT cache
+  apt:
+    update_cache: yes
+
+- name: Install Nginx 1.26
+  apt:
+    name: nginx=1.26.0-1~jammy
+    state: present
+  register: install_nginx_output
+
+- name: Check if default Nginx site configuration exists
+  stat:
+    path: /etc/nginx/conf.d/default.conf
+  register: nginx_default_conf
+
+- name: Remove default Nginx site configuration if it exists
+  file:
+    path: /etc/nginx/conf.d/default.conf
+    state: absent
+  when: nginx_default_conf.stat.exists
+  notify:
+    - restart nginx
+
+- name: Create new default configuration from template
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/conf.d/default.conf
+  notify:
+    - restart nginx

@@ -1,0 +1,95 @@
+---
+- name: Install Prerequisites
+  apt: name=aptitude update_cache=yes state=latest force_apt_get=yes
+
+# Sudo Group Setup
+- name: Make sure we have a 'wheel' group
+  group:
+    name: hng
+    state: present
+
+- name: Allow 'hng' group to have passwordless sudo
+  lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: '^%hng'
+    line: '%hng ALL=(ALL) NOPASSWD: ALL'
+    validate: '/usr/sbin/visudo -cf %s'
+
+# User + Key Setup
+- name: Create a new regular user with sudo privileges
+  user:
+    name: "{{ remote_user }}"
+    state: present
+    groups: hng
+    append: true
+    create_home: true
+    shell: /bin/bash
+
+- name: Set authorized key for remote user
+  authorized_key:
+    user: "{{ remote_user }}"
+    state: present
+    key: "{{ copy_local_key }}"
+
+- name: Disable password authentication for root
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    state: present
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin prohibit-password'
+
+- name: Create log_dir directory
+  file:
+    path: "{{ log_dir }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0755'
+
+- name: Create local_repo directory
+  file:
+    path: "{{ local_repo }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0755'
+
+- name: Create postgres_cred_dir directory
+  file:
+    path: "{{ postgres_cred_dir }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0755'
+
+# Install Packages
+- name: Update apt
+  apt: update_cache=yes
+
+- name: Install required system packages
+  apt: name={{ sys_packages }} state=latest
+
+#UFW Setup
+- name: UFW - Allow SSH connections
+  ufw:
+    rule: allow
+    name: OpenSSH
+
+- name: UFW - Allow http connections
+  ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+
+- name: UFW - Allow https connections
+  ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+
+- name: UFW - Deny all other incoming traffic by default
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming

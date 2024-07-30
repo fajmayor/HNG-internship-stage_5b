@@ -1,0 +1,152 @@
+---
+- hosts: hng
+  become: true
+  tasks:
+    - name: Make sure the remote app root exists and has the right permissions      
+      file:
+        path: "{{ remote_www_root }}/{{ app_root_dir }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ remote_user }}"
+        group: "{{ remote_user}}"
+
+    #- name: Rsync application files to the remote server
+    #  synchronize:
+    #    mode: pull
+    #    src: "application/{{ app_root_dir }}"
+        #src: rsync://github.com/f1amy/laravel-realworld-example-app
+    #    dest: "{{ remote_www_root }}"
+    #    rsync_opts:
+    #      - "--no-motd"
+    #      - "--exclude=.git,vendor,tests,storage/logs/*,storage/framework/sessions/*,storage/framework/cache/*"
+
+    # - name: checkout latest code from github
+    #   git:
+    #     repo: 'https://github.com/hngprojects/hng_boilerplate_php_laravel_web.git'
+    #     dest: "/opt/{{ app_root_dir }}"
+    #     clone: yes
+    #     version: devops
+    #     update: no
+
+    - name: Remove existing /opt/stage_5b directory
+      file:
+        path: /opt/stage_5b
+        state: absent
+
+    - name: Clone the repository if /opt/stage_5b does not exist
+      shell: |
+        git clone --single-branch --branch devops https://github.com/hngprojects/hng_boilerplate_php_laravel_web.git /opt/stage_5b/
+
+    - name: Check if /opt/stage_5b directory exit
+      ansible.builtin.stat:
+        path: "/opt/{{ app_root_dir }}"
+      register: isDir_Exist
+   
+    - debug:
+        msg: "Directory is present"
+      when: isDir_Exist.stat.exists
+
+    # - name: Move to /var/www directory
+    #   shell: sudo mv /opt/{{ app_root_dir }} /var/www/
+    #   when: isDir_Exist.stat.exists == false
+
+    - name: Change file ownership, group and permissions
+      ansible.builtin.file:
+        path: /opt/{{ app_root_dir }}
+        state: directory
+        recurse: yes
+        owner: "{{ remote_user }}"
+        group: "{{ remote_user }}"
+        mode: '775'
+
+    - name: Install Dependencies with Composer
+      become: false
+      composer:
+        command: install
+        no_dev: no
+        working_dir: "{{ remote_www_root }}/{{ app_root_dir }}"
+      args:
+        chdir: /opt/stage_5b/
+      tags: [ 'composer:install' ]
+
+    - name: Change file ownership, group and permissions
+      ansible.builtin.file:
+        path: /opt/{{ app_root_dir }}
+        state: directory
+        recurse: yes
+        owner: hng
+        group: hng
+        mode: '775'
+
+    - name: Change permission
+      shell: sudo chgrp -R hng /opt/{{ app_root_dir }}/
+
+    - name: Set up additional directory permissions for hng user on storage folder
+      acl:
+        path: "{{ remote_www_root }}/{{ app_root_dir }}/storage/"
+        entry: group:hng:rwX
+        recursive: yes
+        state: present
+
+    - name: Change permission
+      shell: sudo chmod -R 755 /opt/{{ app_root_dir }}/
+
+    - name: Change permission
+      shell: sudo chmod -R 775 /opt/{{ app_root_dir }}/storage
+
+    - name: Set up additional directory permissions for hng user on bootstrap/cache folder
+      acl:
+        path: "{{ remote_www_root }}/{{ app_root_dir }}/bootstrap/cache/"
+        entry: group:hng:rwX
+        recursive: yes
+        state: present
+
+    - name: Change permission
+      shell: sudo chmod -R 775 /opt/{{ app_root_dir }}/bootstrap/cache/
+
+    - name: Create the web.php file in the routes directory
+      ansible.builtin.copy:
+        dest: /opt/{{ app_root_dir }}/routes/web.php
+        content: |
+          <?php
+
+          Route::get('/', function () {
+              return view('welcome');
+          });
+
+    - name: Set up .env file
+      template:
+        src: laravel-env.j2
+        dest: "{{ remote_www_root }}/{{ app_root_dir }}/.env"
+
+    - name: Clear cache in the app dir
+      command: "/usr/bin/php {{ remote_www_root }}/{{ app_root_dir }}/artisan cache:clear"
+      tags: [ 'laravel', 'cache:clear' ]
+
+    #- name: Install Dependencies with Composer
+    #  become: false
+    #  composer:
+    #    command: install
+    #    working_dir: "{{ remote_www_root }}/{{ app_root_dir }}"
+    #  tags: [ 'composer:install' ]
+
+
+    #- name: Download and install all requirements outlined in the /var/www/skel/composer.lock
+    #  shell: composer install --no-interaction      args:
+    #    chdir: /var/www/laravel-exam
+
+    - name: Generate app key
+      command: "/usr/bin/php {{ remote_www_root }}/{{ app_root_dir }}/artisan key:generate"
+      tags: [ 'laravel', 'artisan:key' ]
+
+    - name: Set up app storage link
+      command: "/usr/bin/php {{ remote_www_root }}/{{ app_root_dir }}/artisan storage:link"
+      tags: [ 'laravel', 'artisan:storage' ]
+
+    - name: Run Migrations Fresh
+      command: "/usr/bin/php {{ remote_www_root }}/{{ app_root_dir }}/artisan migrate:fresh"
+      tags: [ 'laravel', 'artisan:migrate' ]
+
+    - name: Run Migrations + Seeders
+      command: "/usr/bin/php {{ remote_www_root }}/{{ app_root_dir }}/artisan migrate --seed"
+      tags: [ 'laravel', 'artisan:migrate' ]

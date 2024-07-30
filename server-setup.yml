@@ -1,0 +1,17 @@
+---
+- hosts: hng
+  become: yes
+  gather_facts: true
+  vars_files:
+    - group_vars/all.yml
+
+  roles:
+    - { role: setup, tags: ['setup'] }
+
+    - { role: php, tags: ['php'] }
+
+    - { role: postgres, tags: ['postgres', 'php', 'db'] }
+
+    - { role: nginx, tags: ['nginx', 'web', 'http'] }
+
+    - { role: composer, tags: ['composer'] }
